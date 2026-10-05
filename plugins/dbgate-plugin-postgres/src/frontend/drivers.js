@@ -46,6 +46,10 @@ const dialect = {
   dropReferencesWhenDropTable: true,
   requireStandaloneSelectForScopeIdentity: true,
 
+  columnProperties: {
+    columnComment: true,
+  },
+
   predefinedDataTypes: [
     'bigint',
     'bigserial',

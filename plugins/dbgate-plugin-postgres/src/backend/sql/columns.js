@@ -20,7 +20,8 @@ SELECT
         WHEN a.atttypmod > 0 AND t.typname = 'numeric' THEN (a.atttypmod - 4) & 65535
         ELSE NULL
     END AS "numeric_scale",
-    pg_get_expr(d.adbin, d.adrelid) AS "default_value"
+    pg_get_expr(d.adbin, d.adrelid) AS "default_value",
+    pg_catalog.col_description(c.oid, a.attnum) AS "column_comment"
 FROM pg_catalog.pg_attribute a
 JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace

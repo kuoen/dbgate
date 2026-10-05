@@ -21,6 +21,7 @@ function getColumnInfo(
     default_value,
     postgres_table_id,
     postgres_column_id,
+    column_comment,
   },
   table = undefined,
   geometryColumns = undefined,
@@ -58,6 +59,7 @@ function getColumnInfo(
     autoIncrement,
     postgresTableId: postgres_table_id,
     postgresColumnId: postgres_column_id,
+    columnComment: column_comment || undefined,
   };
 }
 
@@ -235,6 +237,7 @@ class Analyser extends DatabaseAnalyser {
           sizeBytes: table.size_bytes,
           objectId: `tables:${table.schema_name}.${table.pure_name}`,
           contentHash: table.hash_code_columns ? `${table.hash_code_columns}-${table.hash_code_constraints}` : null,
+          objectComment: table.object_comment || undefined,
         };
         const tableIndexes = indexesByTable[tableKey] || [];
         return {

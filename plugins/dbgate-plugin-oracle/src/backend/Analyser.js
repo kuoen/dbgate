@@ -10,7 +10,16 @@ function normalizeTypeName(dataType) {
 }
 
 function getColumnInfo(
-  { is_nullable, column_name, data_type, char_max_length, numeric_precision, numeric_ccale, default_value },
+  {
+    is_nullable,
+    column_name,
+    data_type,
+    char_max_length,
+    numeric_precision,
+    numeric_ccale,
+    default_value,
+    column_comment,
+  },
   table = undefined
 ) {
   const normDataType = normalizeTypeName(data_type);
@@ -25,6 +34,7 @@ function getColumnInfo(
     notNull: is_nullable == 'N',
     defaultValue: autoIncrement ? undefined : default_value?.trim(),
     autoIncrement,
+    columnComment: column_comment || undefined,
   };
 }
 
@@ -133,6 +143,7 @@ class Analyser extends DatabaseAnalyser {
           contentHash: table.hash_code_columns ? `${table.hash_code_columns}-${table.hash_code_constraints}` : null,
           sizeBytes: table.size_bytes,
           tableRowCount: table.table_row_count,
+          objectComment: table.object_comment || undefined,
         };
         return {
           ...newTable,

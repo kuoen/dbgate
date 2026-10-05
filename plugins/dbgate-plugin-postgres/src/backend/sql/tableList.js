@@ -3,6 +3,7 @@ SELECT
     n.nspname AS "schema_name",
     c.relname AS "pure_name",
     pg_relation_size(c.oid) AS "size_bytes",
+    pg_catalog.obj_description(c.oid, 'pg_class') AS "object_comment",
     $md5Function(
         COALESCE(
             (SELECT $typeAggFunc(

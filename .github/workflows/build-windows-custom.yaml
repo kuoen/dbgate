@@ -1,0 +1,52 @@
+name: Build Windows (custom, unsigned)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Enable corepack / yarn
+        run: corepack enable
+
+      - name: yarn set timeout
+        run: yarn config set network-timeout 100000
+
+      - name: yarn install
+        run: yarn install
+
+      - name: setCurrentVersion
+        run: yarn setCurrentVersion
+
+      - name: fillPackagedPlugins
+        run: yarn fillPackagedPlugins
+
+      - name: Build Windows app (unsigned)
+        run: yarn run build:app
+
+      - name: Collect artifacts
+        run: |
+          mkdir artifacts
+          copy app\dist\*win*.exe artifacts\ 2>nul
+          copy app\dist\*win_x64.zip artifacts\ 2>nul
+          copy app\dist\*win_arm64.zip artifacts\ 2>nul
+        shell: cmd
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbgate-windows-unsigned
+          path: artifacts/**

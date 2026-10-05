@@ -44,6 +44,10 @@ const dialect = {
   dropReferencesWhenDropTable: true,
   requireFromDual: true,
 
+  columnProperties: {
+    columnComment: true,
+  },
+
   predefinedDataTypes: [
     'VARCHAR2',
     'NUMBER',
