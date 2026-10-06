@@ -27,6 +27,9 @@ jobs:
       - name: Enable corepack / yarn
         run: corepack enable
 
+      - name: adjustPackageJson
+        run: node adjustPackageJson --community
+
       - name: yarn set timeout
         run: yarn config set network-timeout 100000
 
