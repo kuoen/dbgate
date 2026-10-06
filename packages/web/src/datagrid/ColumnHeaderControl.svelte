@@ -13,6 +13,7 @@
   import DefineDictionaryDescriptionModal from '../modals/DefineDictionaryDescriptionModal.svelte';
   import { sleep } from '../utility/common';
   import { isProApp } from '../utility/proTools';
+  import { getBoolSettingsValue } from '../settings/settingsTools';
 
   export let column;
   export let conid = undefined;
@@ -109,18 +110,25 @@
 </script>
 
 <div class="header">
-  <div class="label">
-    {#if grouping}
-      <span class="grouping">
-        {grouping == 'COUNT DISTINCT' ? 'distinct' : grouping.toLowerCase()}
-      </span>
-    {/if}
-    <ColumnLabel {...column} filter={seachInColumns} />
+  <div class="label-wrapper">
+    <div class="label">
+      {#if grouping}
+        <span class="grouping">
+          {grouping == 'COUNT DISTINCT' ? 'distinct' : grouping.toLowerCase()}
+        </span>
+      {/if}
+      <ColumnLabel {...column} filter={seachInColumns} />
 
-    {#if _.isString(column.displayedDataType || column.dataType) && !order}
-      <span class="data-type" title={column.dataType}>
-        {(column.displayedDataType || column.dataType).toLowerCase()}
-      </span>
+      {#if _.isString(column.displayedDataType || column.dataType) && !order}
+        <span class="data-type" title={column.dataType}>
+          {(column.displayedDataType || column.dataType).toLowerCase()}
+        </span>
+      {/if}
+    </div>
+    {#if column.columnComment && getBoolSettingsValue('dataGrid.showColumnCommentsInHeader', true)}
+      <div class="comment" title={column.columnComment}>
+        {column.columnComment}
+      </div>
     {/if}
   </div>
   {#if order == 'ASC'}
@@ -161,10 +169,22 @@
     position: relative;
   }
   .label {
+    padding: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .label-wrapper {
     flex: 1;
     min-width: 10px;
-    padding: 2px;
     margin: auto;
+    overflow: hidden;
+  }
+  .comment {
+    font-size: 10px;
+    line-height: 1.2;
+    padding: 0 2px 2px 2px;
+    color: var(--theme-generic-font-grayed);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

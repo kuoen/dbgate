@@ -8,6 +8,7 @@
   import ColumnEditorModal from '../tableeditor/ColumnEditorModal.svelte';
   import { editorDeleteColumn } from 'dbgate-tools';
   import { isProApp } from '../utility/proTools';
+  import { getBoolSettingsValue } from '../settings/settingsTools';
 
   export let column;
   export let display;
@@ -92,6 +93,9 @@
       />
     {/if}
     <ColumnLabel {...column} showDataType {conid} {database} {filter} />
+    {#if column.columnComment && getBoolSettingsValue('dataGrid.showColumnCommentsInColumnManager', true)}
+      <span class="comment" title={column.columnComment}>{column.columnComment}</span>
+    {/if}
   </div>
 
   {#if allowChangeChangeSetStructure && !isDynamicStructure}
@@ -149,5 +153,11 @@
   }
   .icon:hover {
     color: var(--theme-altsidebar-foreground-hover);
+  }
+  .comment {
+    font-style: italic;
+    font-weight: normal;
+    margin-left: 5px;
+    color: var(--theme-datagrid-foreground-grayed);
   }
 </style>

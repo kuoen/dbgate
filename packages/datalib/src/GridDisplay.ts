@@ -46,6 +46,7 @@ export interface DisplayColumn {
   isStructured?: boolean;
   sourceColumnName?: string;
   queryResultEditable?: boolean;
+  columnComment?: string;
 }
 
 export interface DisplayedColumnEx extends DisplayColumn {

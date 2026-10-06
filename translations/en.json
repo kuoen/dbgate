@@ -1363,6 +1363,8 @@
   "settings.dataGrid.disableCellDataViewAutoOpen": "Disable automatic Cell Data View",
   "settings.dataGrid.pageSize": "Page size (number of rows for incremental loading, must be between 5 and 50000)",
   "settings.dataGrid.showAllColumnsWhenSearch": "Show all columns when searching",
+  "settings.dataGrid.showColumnCommentsInColumnManager": "Show column comments in column manager",
+  "settings.dataGrid.showColumnCommentsInHeader": "Show column comments in grid header",
   "settings.dataGrid.showHintColumns": "Show foreign key hints",
   "settings.dataGrid.thousandsSeparator": "Thousands separator for numbers",
   "settings.dataGrid.thousandsSeparator.comma": "Comma (,)",

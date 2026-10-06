@@ -108,6 +108,24 @@
     })}
     defaultValue={false}
   />
+
+  <FormCheckboxField
+    name="dataGrid.showColumnCommentsInHeader"
+    label={_t('settings.dataGrid.showColumnCommentsInHeader', {
+      defaultMessage: 'Show column comments in grid header',
+    })}
+    defaultValue={true}
+    data-testid="DataGridSettings_showColumnCommentsInHeader"
+  />
+
+  <FormCheckboxField
+    name="dataGrid.showColumnCommentsInColumnManager"
+    label={_t('settings.dataGrid.showColumnCommentsInColumnManager', {
+      defaultMessage: 'Show column comments in column manager',
+    })}
+    defaultValue={true}
+    data-testid="DataGridSettings_showColumnCommentsInColumnManager"
+  />
 </div>
 
 <style>
