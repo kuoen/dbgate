@@ -9,8 +9,6 @@ const routines = require('./routines');
 const routineModifications = require('./routineModifications');
 const matviewColumns = require('./matviewColumns');
 const indexes = require('./indexes');
-const indexcols = require('./indexcols');
-const uniqueNames = require('./uniqueNames');
 const geometryColumns = require('./geometryColumns');
 const geographyColumns = require('./geographyColumns');
 const proceduresParameters = require('./proceduresParameters');
@@ -37,8 +35,6 @@ module.exports = {
   matviewModifications,
   matviewColumns,
   indexes,
-  indexcols,
-  uniqueNames,
   geometryColumns,
   geographyColumns,
   proceduresParameters,

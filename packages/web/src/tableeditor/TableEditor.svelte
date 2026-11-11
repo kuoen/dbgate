@@ -162,6 +162,17 @@
     return 'INDEX';
   }
 
+  function getIndexColumnsLabel(row) {
+    const keyColumns = (row?.columns || [])
+      .filter(x => !x.isIncludedColumn)
+      .map(x => (x.isDescending ? `${x.columnName} DESC` : x.columnName));
+    const includedColumns = (row?.columns || []).filter(x => x.isIncludedColumn).map(x => x.columnName);
+    let res = keyColumns.join(', ');
+    if (includedColumns.length > 0) res += ` INCLUDE (${includedColumns.join(', ')})`;
+    if (row?.filterDefinition) res += ` WHERE ${row.filterDefinition}`;
+    return res;
+  }
+
   $: columns = tableInfo?.columns;
   $: foreignKeys = tableInfo?.foreignKeys;
   $: dependencies = tableInfo?.dependencies;
@@ -378,7 +389,7 @@
       ]}
     >
       <svelte:fragment slot="name" let:row><ConstraintLabel {...row} /></svelte:fragment>
-      <svelte:fragment slot="0" let:row>{row?.columns.map(x => x.columnName).join(', ')}</svelte:fragment>
+      <svelte:fragment slot="0" let:row>{getIndexColumnsLabel(row)}</svelte:fragment>
       <svelte:fragment slot="1" let:row>{getIndexTypeLabel(row)}</svelte:fragment>
       <svelte:fragment slot="2" let:row
         ><Link

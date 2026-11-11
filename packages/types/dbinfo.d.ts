@@ -10,6 +10,8 @@ export interface ColumnReference {
   refColumnName?: string;
   isIncludedColumn?: boolean;
   isDescending?: boolean;
+  // columnName contains SQL expression (expression index column, eg. lower(email))
+  isExpression?: boolean;
 }
 
 export interface ConstraintInfo extends NamedObjectInfo {

@@ -25,7 +25,19 @@ SELECT
             WHERE con.conrelid = c.oid),
             ''
         )
-    ) AS "hash_code_constraints"
+    ) AS "hash_code_constraints",
+    $md5Function(
+        COALESCE(
+            (SELECT $typeAggFunc(
+                $indexHashExpr
+                $hashIndexAggTail
+            )
+            FROM pg_catalog.pg_index ix
+            JOIN pg_catalog.pg_class ic ON ic.oid = ix.indexrelid
+            WHERE ix.indrelid = c.oid),
+            ''
+        )
+    ) AS "hash_code_indexes"
 FROM pg_catalog.pg_class c
 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE c.relkind IN ('r', 'p', 'f')

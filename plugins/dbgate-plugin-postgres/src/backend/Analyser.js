@@ -29,8 +29,9 @@ function getColumnInfo(
 ) {
   const normDataType = normalizeTypeName(data_type);
   let fullDataType = normDataType;
-  if (char_max_length && isTypeString(normDataType)) fullDataType = `${normDataType}(${char_max_length})`;
-  if (numeric_precision && numeric_scale && isTypeNumeric(normDataType))
+  if (char_max_length && (isTypeString(normDataType) || normDataType == 'bit' || normDataType == 'bit varying'))
+    fullDataType = `${normDataType}(${char_max_length})`;
+  if (numeric_precision && numeric_scale != null && isTypeNumeric(normDataType))
     fullDataType = `${normDataType}(${numeric_precision},${numeric_scale})`;
   const autoIncrement = !!(default_value && default_value.startsWith('nextval('));
   if (
@@ -63,6 +64,16 @@ function getColumnInfo(
   };
 }
 
+function getIndexColumnInfo(row) {
+  if (row.is_included) {
+    return { columnName: row.column_name, isIncludedColumn: true };
+  }
+  if (row.column_expression) {
+    return { columnName: row.column_expression, isExpression: true, isDescending: row.is_descending };
+  }
+  return { columnName: row.column_name, isDescending: row.is_descending };
+}
+
 function getParametersSqlString(parameters = []) {
   if (!parameters?.length) return '';
 
@@ -79,6 +90,22 @@ function getParametersSqlString(parameters = []) {
 class Analyser extends DatabaseAnalyser {
   constructor(dbhan, driver, version) {
     super(dbhan, driver, version);
+    this.version = version;
+  }
+
+  getIndexKeyColumnCountExpr() {
+    // pg_index.indnkeyatts (number of key columns, without INCLUDE columns) exists since PostgreSQL 11
+    if (this.version?.isPostgres && this.version?.versionMajor != null && this.version.versionMajor < 11) {
+      return 'ix.indnatts';
+    }
+    return 'ix.indnkeyatts';
+  }
+
+  getIndexHashExpr() {
+    if (this.driver.__analyserInternals.skipIndexes) return 'ic.relname';
+    return `ic.relname || ':' || ic.relam::text || ':' || ix.indisunique::text || ':' || ix.indkey::text || ':' || ix.indoption::text
+                || ':' || COALESCE(pg_catalog.pg_get_expr(ix.indexprs, ix.indrelid), '')
+                || ':' || COALESCE(pg_catalog.pg_get_expr(ix.indpred, ix.indrelid), '')`;
   }
 
   createQuery(resFileName, typeFields, replacements = {}) {
@@ -88,6 +115,9 @@ class Analyser extends DatabaseAnalyser {
       $typeAggParam: this.driver.dialect.stringAgg ? ", '|'" : '',
       $hashColumnAggTail: this.driver.dialect.stringAgg ? ", ',' ORDER BY a.attnum" : '',
       $hashConstraintAggTail: this.driver.dialect.stringAgg ? ", ',' ORDER BY con.conname" : '',
+      $hashIndexAggTail: this.driver.dialect.stringAgg ? ", ',' ORDER BY ic.relname" : '',
+      $indexHashExpr: this.getIndexHashExpr(),
+      $indexKeyColumnCount: this.getIndexKeyColumnCountExpr(),
       $md5Function: this.dialect?.isFipsComplianceOn ? 'LENGTH' : 'MD5',
     });
     return query;
@@ -111,11 +141,9 @@ class Analyser extends DatabaseAnalyser {
       columns,
       pkColumns,
       foreignKeys,
-      uniqueNames,
       routines,
       routineParametersRows,
       indexes,
-      indexcols,
       matviews,
       matviewColumns,
       triggers,
@@ -125,15 +153,11 @@ class Analyser extends DatabaseAnalyser {
       this.analyserQuery('columns', ['tables', 'views']),
       this.analyserQuery('primaryKeys', ['tables']),
       this.analyserQuery('foreignKeys', ['tables']),
-      this.analyserQuery('uniqueNames', ['tables']),
       this.analyserQuery(routinesQueryName, ['procedures', 'functions']),
       this.analyserQuery(proceduresParametersQueryName),
       this.driver.__analyserInternals.skipIndexes
         ? Promise.resolve({ rows: [] })
         : this.analyserQuery('indexes', ['tables']),
-      this.driver.__analyserInternals.skipIndexes
-        ? Promise.resolve({ rows: [] })
-        : this.analyserQuery('indexcols', ['tables']),
       this.driver.dialect.materializedViews
         ? this.analyserQuery('matviews', ['matviews'])
         : Promise.resolve(null),
@@ -165,9 +189,10 @@ class Analyser extends DatabaseAnalyser {
 
     // Pre-build lookup maps for O(1) access instead of O(n) scanning per table/view
     const columnsByTable = _.groupBy(columns.rows, x => `${x.schema_name}.${x.pure_name}`);
-    const indexcolsByOidAttnum = _.keyBy(indexcols.rows, x => `${x.oid}_${x.attnum}`);
-    const uniqueNameSet = new Set(uniqueNames.rows.map(x => x.constraint_name));
-    const indexesByTable = _.groupBy(indexes.rows, x => `${x.schema_name}.${x.table_name}`);
+    const indexesByTable = _.mapValues(
+      _.groupBy(indexes.rows, x => `${x.schema_name}.${x.table_name}`),
+      rows => Object.values(_.groupBy(rows, x => x.index_name))
+    );
     const matviewColumnsByTable = matviewColumns
       ? _.groupBy(matviewColumns.rows, x => `${x.schema_name}.${x.pure_name}`)
       : {};
@@ -236,7 +261,9 @@ class Analyser extends DatabaseAnalyser {
           schemaName: table.schema_name,
           sizeBytes: table.size_bytes,
           objectId: `tables:${table.schema_name}.${table.pure_name}`,
-          contentHash: table.hash_code_columns ? `${table.hash_code_columns}-${table.hash_code_constraints}` : null,
+          contentHash: table.hash_code_columns
+            ? `${table.hash_code_columns}-${table.hash_code_constraints}-${table.hash_code_indexes}`
+            : null,
           objectComment: table.object_comment || undefined,
         };
         const tableIndexes = indexesByTable[tableKey] || [];
@@ -248,37 +275,19 @@ class Analyser extends DatabaseAnalyser {
           primaryKey: DatabaseAnalyser.extractPrimaryKeys(newTable, pkByTable[tableKey] || []),
           foreignKeys: DatabaseAnalyser.extractForeignKeys(newTable, fkByTable[tableKey] || []),
           indexes: tableIndexes
-            .filter(x => !uniqueNameSet.has(x.index_name))
-            .map(idx => {
-              const indOptionSplit = idx.indoption.split(' ');
-              return {
-                constraintName: idx.index_name,
-                isUnique: idx.is_unique,
-                columns: _.compact(
-                  idx.indkey
-                    .split(' ')
-                    .map(colid => indexcolsByOidAttnum[`${idx.oid}_${colid}`])
-                    .filter(col => col != null)
-                    .map((col, colIndex) => ({
-                      columnName: col.column_name,
-                      isDescending: parseInt(indOptionSplit[colIndex]) > 0,
-                    }))
-                ),
-              };
-            }),
+            .filter(rows => rows[0].constraint_type != 'u')
+            .map(rows => ({
+              constraintName: rows[0].index_name,
+              isUnique: rows[0].is_unique,
+              indexType: rows[0].index_method && rows[0].index_method != 'btree' ? rows[0].index_method : undefined,
+              filterDefinition: rows[0].filter_definition || undefined,
+              columns: rows.map(getIndexColumnInfo),
+            })),
           uniques: tableIndexes
-            .filter(x => uniqueNameSet.has(x.index_name))
-            .map(idx => ({
-              constraintName: idx.index_name,
-              columns: _.compact(
-                idx.indkey
-                  .split(' ')
-                  .map(colid => indexcolsByOidAttnum[`${idx.oid}_${colid}`])
-                  .filter(col => col != null)
-                  .map(col => ({
-                    columnName: col.column_name,
-                  }))
-              ),
+            .filter(rows => rows[0].constraint_type == 'u')
+            .map(rows => ({
+              constraintName: rows[0].index_name,
+              columns: rows.filter(row => !row.is_included).map(row => ({ columnName: row.column_name })),
             })),
         };
       }),
@@ -387,7 +396,7 @@ class Analyser extends DatabaseAnalyser {
         objectId: `tables:${x.schema_name}.${x.pure_name}`,
         pureName: x.pure_name,
         schemaName: x.schema_name,
-        contentHash: `${x.hash_code_columns}-${x.hash_code_constraints}`,
+        contentHash: `${x.hash_code_columns}-${x.hash_code_constraints}-${x.hash_code_indexes}`,
       })),
       views: viewModificationsQueryData.rows.map(x => ({
         objectId: `views:${x.schema_name}.${x.pure_name}`,

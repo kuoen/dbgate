@@ -53,9 +53,36 @@ class Dumper extends SqlDumper {
     this.endCommand();
   }
 
-  //public override void CreateIndex(IndexInfo ix)
-  //{
-  //}
+  createIndex(ix) {
+    const keyColumns = ix.columns.filter(x => !x.isIncludedColumn);
+    const includedColumns = ix.columns.filter(x => x.isIncludedColumn);
+    // only btree supports ASC/DESC; gin, gist, hash, brin... fail with ordering options
+    const isBtree = !ix.indexType || ix.indexType.toLowerCase() == 'btree';
+
+    this.put('^create');
+    this.indexType(ix);
+    this.put(' ^index %i &n^on %f', ix.constraintName, ix);
+    if (!isBtree) {
+      this.put(' ^using %s', ix.indexType.toLowerCase());
+    }
+    this.put(' (&>&n');
+    this.putCollection(',&n', keyColumns, col => {
+      if (col.isExpression) this.put('(%s)', col.columnName);
+      else this.put('%i', col.columnName);
+      if (isBtree) this.put(' %k', col.isDescending == true ? 'DESC' : 'ASC');
+    });
+    this.put('&<&n)');
+    if (includedColumns.length > 0) {
+      this.put(
+        ' ^include (%,i)',
+        includedColumns.map(x => x.columnName)
+      );
+    }
+    if (ix.filterDefinition) {
+      this.put('&n^where %s', ix.filterDefinition);
+    }
+    this.endCommand();
+  }
 
   enableConstraints(table, enabled) {
     this.putCmd('^alter ^table %f %k ^trigger ^all', table, enabled ? 'enable' : 'disable');

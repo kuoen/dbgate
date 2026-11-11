@@ -74,13 +74,22 @@
                 value={column.columnName}
                 isNative
                 disabled={isReadOnly}
-                options={tableInfo.columns.map(col => ({
-                  label: col.columnName,
-                  value: col.columnName,
-                }))}
+                options={[
+                  ...tableInfo.columns.map(col => ({
+                    label: col.columnName,
+                    value: col.columnName,
+                  })),
+                  // expression column (eg. lower(email)) is not a table column, keep it selectable
+                  ...(column.columnName && !tableInfo.columns.find(col => col.columnName == column.columnName)
+                    ? [{ label: column.columnName, value: column.columnName }]
+                    : []),
+                ]}
                 on:change={e => {
                   if (e.detail) {
-                    columns = columns.map((col, i) => (i == index ? { columnName: e.detail } : col));
+                    const isExpression = !tableInfo.columns.find(col => col.columnName == e.detail);
+                    columns = columns.map((col, i) =>
+                      i == index ? { columnName: e.detail, ...(isExpression ? { isExpression: true } : {}) } : col
+                    );
                   }
                 }}
               />
